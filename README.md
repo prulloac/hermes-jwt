@@ -21,3 +21,8 @@ Hermes is the messenger of the gods in Greek mythology. He is the god of trade, 
 ## Motivation
 
 I just wanted to learn more about JOSE and Go. This project is a way to learn more about both. If you want to make use of this project, please read the license.
+
+## Inspiration repos (recommended to actually use)
+
+- <https://github.com/go-jose/go-jose>
+- <https://github.com/golang-jwt/jwt>
