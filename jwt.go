@@ -28,11 +28,25 @@ const (
 	ContentTypeHeader = "cty"
 )
 
+type JWTState int
+
+const (
+	StateUnsecured JWTState = iota
+	StateSigned
+	StateEncrypted
+	StateSignedAndEncrypted
+)
+
 type JWT struct {
 	header    JoseHeader
 	payload   JWTClaimsSet
 	signature []byte
 	raw       string
+	state     JWTState
+}
+
+func (j JWT) State() JWTState {
+	return j.state
 }
 
 type JWTClaimsSet struct {

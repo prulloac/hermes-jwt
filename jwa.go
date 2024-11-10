@@ -1,25 +1,11 @@
 // Reference: https://datatracker.ietf.org/doc/html/rfc7518
 package hermes
 
+import "github.com/prulloac/hermes-jwt/cryptography"
+
 func (j JWT) Algorithm() string {
 	return j.header.Algorithm()
 }
-
-const (
-	AlgorithmHS256 = "HS256"
-	AlgorithmHS384 = "HS384"
-	AlgorithmHS512 = "HS512"
-	AlgorithmRS256 = "RS256"
-	AlgorithmRS384 = "RS384"
-	AlgorithmRS512 = "RS512"
-	AlgorithmES256 = "ES256"
-	AlgorithmES384 = "ES384"
-	AlgorithmES512 = "ES512"
-	AlgorithmPS256 = "PS256"
-	AlgorithmPS384 = "PS384"
-	AlgorithmPS512 = "PS512"
-	AlgorithmNone  = "none"
-)
 
 func (j JWT) IsJWS() bool {
 	return IsJWS(j.header.Algorithm())
@@ -27,19 +13,19 @@ func (j JWT) IsJWS() bool {
 
 func IsJWS(s string) bool {
 	switch s {
-	case AlgorithmHS256,
-		AlgorithmHS384,
-		AlgorithmHS512,
-		AlgorithmRS256,
-		AlgorithmRS384,
-		AlgorithmRS512,
-		AlgorithmES256,
-		AlgorithmES384,
-		AlgorithmES512,
-		AlgorithmPS256,
-		AlgorithmPS384,
-		AlgorithmPS512,
-		AlgorithmNone:
+	case cryptography.AlgorithmHS256,
+		cryptography.AlgorithmHS384,
+		cryptography.AlgorithmHS512,
+		cryptography.AlgorithmRS256,
+		cryptography.AlgorithmRS384,
+		cryptography.AlgorithmRS512,
+		cryptography.AlgorithmES256,
+		cryptography.AlgorithmES384,
+		cryptography.AlgorithmES512,
+		cryptography.AlgorithmPS256,
+		cryptography.AlgorithmPS384,
+		cryptography.AlgorithmPS512,
+		cryptography.AlgorithmNone:
 		return true
 	default:
 		return false
