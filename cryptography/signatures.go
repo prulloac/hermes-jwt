@@ -1,7 +1,9 @@
 package cryptography
 
 import (
+	"crypto"
 	"crypto/hmac"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/sha512"
 	"fmt"
@@ -25,8 +27,8 @@ const (
 	AlgorithmNone  = "none"
 )
 
-// HMACSign signs a JWT using HMAC algorithm and the provided key and returns the signature.
-func HMACSign(algorithm string, jwsSigningInput string, key interface{}) ([]byte, error) {
+// HMACSign signs a JWT using HMAC algorithm and the provided key, returning the signature bytes.
+func HMACSign(algorithm string, key interface{}, jwsSigningInput string) ([]byte, error) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Fprintf(os.Stderr, "recovered from panic, unsupported algorithm received in HMACSign: %v", algorithm)
@@ -37,6 +39,8 @@ func HMACSign(algorithm string, jwsSigningInput string, key interface{}) ([]byte
 		var h hash.Hash
 		if algorithm == AlgorithmHS256 {
 			h = hmac.New(sha256.New, keyBytes)
+		} else if algorithm == AlgorithmHS384 {
+			h = hmac.New(sha512.New384, keyBytes)
 		} else if algorithm == AlgorithmHS512 {
 			h = hmac.New(sha512.New, keyBytes)
 		}
@@ -49,47 +53,83 @@ func HMACSign(algorithm string, jwsSigningInput string, key interface{}) ([]byte
 	return nil, fmt.Errorf("key must be a byte slice")
 }
 
-func RSASign(algorithm string, jwsSigningInput string, key interface{}) ([]byte, error) {
-	if algorithm == AlgorithmRS256 {
-		// RSA using SHA-256
-		return nil, fmt.Errorf("unsupported algorithm")
-	} else if algorithm == AlgorithmRS384 {
-		// RSA using SHA-384
-		return nil, fmt.Errorf("unsupported algorithm")
-	} else if algorithm == AlgorithmRS512 {
-		// RSA using SHA-512
-		return nil, fmt.Errorf("unsupported algorithm")
-	} else {
-		return nil, fmt.Errorf("unsupported algorithm")
+// HMACVerify verifies a JWT signature using HMAC algorithm and the provided key, returning a boolean indicating if the signature is valid.
+func HMACVerify(algorithm string, key interface{}, jwsSigningInput string, signature []byte) (bool, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "recovered from panic, unsupported algorithm received in HMACVerify: %v", algorithm)
+			os.Exit(1)
+		}
+	}()
+	if keyBytes, ok := key.([]byte); ok {
+		var h hash.Hash
+		if algorithm == AlgorithmHS256 {
+			h = hmac.New(sha256.New, keyBytes)
+		} else if algorithm == AlgorithmHS384 {
+			h = hmac.New(sha512.New384, keyBytes)
+		} else if algorithm == AlgorithmHS512 {
+			h = hmac.New(sha512.New, keyBytes)
+		}
+		if h != nil {
+			h.Write([]byte(jwsSigningInput))
+			expectedMAC := h.Sum(nil)
+			return hmac.Equal(signature, expectedMAC), nil
+		}
+		return false, fmt.Errorf("unsupported algorithm")
 	}
+	return false, fmt.Errorf("key must be a byte slice")
 }
 
-func ECDSASign(algorithm string, jwsSigningInput string, key interface{}) ([]byte, error) {
-	if algorithm == AlgorithmES256 {
-		// ECDSA using SHA-256
-		return nil, fmt.Errorf("unsupported algorithm")
-	} else if algorithm == AlgorithmES384 {
-		// ECDSA using SHA-384
-		return nil, fmt.Errorf("unsupported algorithm")
-	} else if algorithm == AlgorithmES512 {
-		// ECDSA using SHA-512
-		return nil, fmt.Errorf("unsupported algorithm")
-	} else {
-		return nil, fmt.Errorf("unsupported algorithm")
+// RSASign signs a JWT using RSASSA-PKCS1-v1_5 algorithm and the provided private key, returning the signature bytes.
+func RSASign(algorithm string, key interface{}, jwsSigningInput string) ([]byte, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "recovered from panic, unsupported algorithm received in HMACSign: %v", algorithm)
+			os.Exit(1)
+		}
+	}()
+
+	if rsaPrivateKey, ok := key.(*rsa.PrivateKey); ok {
+		var h crypto.Hash
+		if algorithm == AlgorithmRS256 {
+			h = crypto.SHA256
+		} else if algorithm == AlgorithmRS384 {
+			h = crypto.SHA384
+		} else if algorithm == AlgorithmRS512 {
+			h = crypto.SHA512
+		} else {
+			return nil, fmt.Errorf("unsupported algorithm")
+		}
+		if h != 0 {
+			i := h.New()
+			i.Write([]byte(jwsSigningInput))
+			signature, err := rsa.SignPKCS1v15(nil, rsaPrivateKey, h, i.Sum(nil))
+			if err != nil {
+				return nil, err
+			}
+			return signature, nil
+		}
 	}
+	return nil, fmt.Errorf("key must be a *rsa.PrivateKey")
 }
 
-func RSAPSSSign(algorithm string, jwsSigningInput string, key interface{}) ([]byte, error) {
-	if algorithm == AlgorithmPS256 {
-		// RSASSA-PSS using SHA-256
-		return nil, fmt.Errorf("unsupported algorithm")
-	} else if algorithm == AlgorithmPS384 {
-		// RSASSA-PSS using SHA-384
-		return nil, fmt.Errorf("unsupported algorithm")
-	} else if algorithm == AlgorithmPS512 {
-		// RSASSA-PSS using SHA-512
-		return nil, fmt.Errorf("unsupported algorithm")
-	} else {
-		return nil, fmt.Errorf("unsupported algorithm")
+// RSAVerify verifies a JWT signature using RSASSA-PKCS1-v1_5 algorithm and the provided public key, returning a boolean indicating if the signature is valid.
+func RSAVerify(algorithm string, key interface{}, jwsSigningInput string, signature []byte) (bool, error) {
+	if rsaPublicKey, ok := key.(*rsa.PublicKey); ok {
+		var h crypto.Hash
+		if algorithm == AlgorithmRS256 {
+			h = crypto.SHA256
+		} else if algorithm == AlgorithmRS384 {
+			h = crypto.SHA384
+		} else if algorithm == AlgorithmRS512 {
+			h = crypto.SHA512
+		}
+		if h != 0 {
+			i := h.New()
+			i.Write([]byte(jwsSigningInput))
+			return rsa.VerifyPKCS1v15(rsaPublicKey, h, i.Sum(nil), signature) == nil, nil
+		}
+		return false, fmt.Errorf("unsupported algorithm")
 	}
+	return false, fmt.Errorf("key must be a *rsa.PublicKey")
 }

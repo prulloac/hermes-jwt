@@ -13,13 +13,9 @@ func (j JWT) Sign(key interface{}) ([]byte, error) {
 	jwsSigningInput := j.header.ToBase64URL() + "." + j.payload.ToBase64URL()
 	switch j.header.Algorithm() {
 	case cryptography.AlgorithmHS256, cryptography.AlgorithmHS384, cryptography.AlgorithmHS512:
-		return cryptography.HMACSign(j.Algorithm(), jwsSigningInput, key.([]byte))
+		return cryptography.HMACSign(j.Algorithm(), key, jwsSigningInput)
 	case cryptography.AlgorithmRS256, cryptography.AlgorithmRS384, cryptography.AlgorithmRS512:
-		return cryptography.RSASign(j.Algorithm(), jwsSigningInput, key)
-	case cryptography.AlgorithmES256, cryptography.AlgorithmES384, cryptography.AlgorithmES512:
-		return cryptography.ECDSASign(j.Algorithm(), jwsSigningInput, key)
-	case cryptography.AlgorithmPS256, cryptography.AlgorithmPS384, cryptography.AlgorithmPS512:
-		return cryptography.RSAPSSSign(j.Algorithm(), jwsSigningInput, key)
+		return cryptography.RSASign(j.Algorithm(), key, jwsSigningInput)
 	default:
 		return nil, fmt.Errorf("unsupported algorithm")
 	}
@@ -32,9 +28,13 @@ func (j JWT) Verify(key interface{}) (bool, error) {
 	if j.State() != StateSigned {
 		return false, fmt.Errorf("JWT is not signed")
 	}
-	s, err := j.Sign(key)
-	if err != nil {
-		return false, err
+	jwsSigningInput := j.header.ToBase64URL() + "." + j.payload.ToBase64URL()
+	switch j.header.Algorithm() {
+	case cryptography.AlgorithmHS256, cryptography.AlgorithmHS384, cryptography.AlgorithmHS512:
+		return cryptography.HMACVerify(j.Algorithm(), key, jwsSigningInput, j.signature)
+	case cryptography.AlgorithmRS256, cryptography.AlgorithmRS384, cryptography.AlgorithmRS512:
+		return cryptography.RSAVerify(j.Algorithm(), key, jwsSigningInput, j.signature)
+	default:
+		return false, fmt.Errorf("unsupported algorithm")
 	}
-	return string(j.signature) == string(s), nil
 }
