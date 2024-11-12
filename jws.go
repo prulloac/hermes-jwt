@@ -1,13 +1,17 @@
+// Reference: https://tools.ietf.org/html/rfc7515
 package hermes
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	cryptography "github.com/prulloac/hermes-jwt/cryptography"
 )
 
 func (j JWT) Sign(key interface{}) ([]byte, error) {
-	if j.IsJWS() && j.State() == StateSigned {
+	if j.IsJWS() && j.State() != Unsecured {
 		return nil, fmt.Errorf("JWT is already signed")
 	}
 	jwsSigningInput := j.header.ToBase64URL() + "." + j.payload.ToBase64URL()
@@ -21,20 +25,69 @@ func (j JWT) Sign(key interface{}) ([]byte, error) {
 	}
 }
 
-func (j JWT) Verify(key interface{}) (bool, error) {
+func (j JWT) Verify(key interface{}) error {
 	if !j.IsJWS() {
-		return false, fmt.Errorf("JWT is not a JWS")
-	}
-	if j.State() != StateSigned {
-		return false, fmt.Errorf("JWT is not signed")
+		return fmt.Errorf("JWT is not a JWS")
 	}
 	jwsSigningInput := j.header.ToBase64URL() + "." + j.payload.ToBase64URL()
+	b := false
+	var err error
 	switch j.header.Algorithm() {
 	case cryptography.AlgorithmHS256, cryptography.AlgorithmHS384, cryptography.AlgorithmHS512:
-		return cryptography.HMACVerify(j.Algorithm(), key, jwsSigningInput, j.signature)
+		b, err = cryptography.HMACVerify(j.Algorithm(), key, jwsSigningInput, j.signature)
 	case cryptography.AlgorithmRS256, cryptography.AlgorithmRS384, cryptography.AlgorithmRS512:
-		return cryptography.RSAVerify(j.Algorithm(), key, jwsSigningInput, j.signature)
+		b, err = cryptography.RSAVerify(j.Algorithm(), key, jwsSigningInput, j.signature)
 	default:
-		return false, fmt.Errorf("unsupported algorithm")
+		return fmt.Errorf("unsupported algorithm")
 	}
+	if err != nil {
+		return err
+	}
+	if !b {
+		j.state = SignatureInvalid
+	} else {
+		j.state = SignatureVerified
+	}
+	return nil
+}
+
+func ParseJWS(jwt string) (JWT, error) {
+	if jwt == "" {
+		return JWT{}, fmt.Errorf("empty JWT")
+	}
+	parts := strings.Split(jwt, ".")
+	if len(parts) != 3 {
+		return JWT{}, fmt.Errorf("invalid JWT")
+	}
+	header, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil {
+		return JWT{}, err
+	}
+	var h JoseHeader = make(map[string]interface{})
+	if err := json.Unmarshal(header, &h); err != nil {
+		return JWT{}, err
+	}
+	if !IsJWS(h.Algorithm()) {
+		return JWT{}, fmt.Errorf("not a JWS")
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return JWT{}, err
+	}
+	var claimsMap map[string]interface{} = make(map[string]interface{})
+	if err := json.Unmarshal(payload, &claimsMap); err != nil {
+		return JWT{}, err
+	}
+	claims := NewJWTClaimsSet(claimsMap)
+	signature, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil {
+		return JWT{}, err
+	}
+	return JWT{
+		header:    h,
+		payload:   claims,
+		raw:       jwt,
+		state:     SignatureUnverified,
+		signature: signature,
+	}, nil
 }

@@ -8,7 +8,7 @@ func (j JWT) Algorithm() string {
 }
 
 func (j JWT) IsJWS() bool {
-	return IsJWS(j.header.Algorithm())
+	return IsJWS(j.Algorithm())
 }
 
 func IsJWS(s string) bool {

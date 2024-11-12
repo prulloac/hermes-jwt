@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"strings"
 )
 
 type StringOrURI string
@@ -31,10 +30,13 @@ const (
 type JWTState int
 
 const (
-	StateUnsecured JWTState = iota
-	StateSigned
-	StateEncrypted
-	StateSignedAndEncrypted
+	Unsecured JWTState = iota
+	SignatureVerified
+	SignatureInvalid
+	SignatureUnverified
+	EncryptionVerified
+	EncryptionInvalid
+	EncryptionUnverified
 )
 
 type JWT struct {
@@ -47,6 +49,20 @@ type JWT struct {
 
 func (j JWT) State() JWTState {
 	return j.state
+}
+
+func (j JWT) String() string {
+	out := j.header.ToBase64URL() + "." +
+		j.payload.ToBase64URL()
+	if len(j.signature) == 0 {
+		return out
+	}
+	return out + "." +
+		base64.URLEncoding.EncodeToString(j.signature)
+}
+
+func (j JWT) IsSecured() bool {
+	return len(j.signature) > 0
 }
 
 type JWTClaimsSet struct {
@@ -64,11 +80,15 @@ func NewJWTClaimsSet(m map[string]interface{}) JWTClaimsSet {
 }
 
 func (j JWTClaimsSet) ToBase64URL() string {
-	b, err := json.Marshal(j)
+	var m map[string]interface{} = make(map[string]interface{})
+	for _, c := range j.Claims {
+		m[c.Name] = c.Value
+	}
+	b, err := json.Marshal(m)
 	if err != nil {
 		panic(err)
 	}
-	return base64.URLEncoding.EncodeToString(b)
+	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 func (j JWTClaimsSet) GetClaim(name string) (Claim, error) {
@@ -132,20 +152,6 @@ func (c Claim) String() string {
 	return string(out)
 }
 
-func (j JWT) String() string {
-	out := j.header.ToBase64URL() + "." +
-		j.payload.ToBase64URL()
-	if len(j.signature) == 0 {
-		return out
-	}
-	return out + "." +
-		base64.URLEncoding.EncodeToString(j.signature)
-}
-
-func (j JWT) IsSecured() bool {
-	return len(j.signature) > 0
-}
-
 type JoseHeader map[string]interface{}
 
 func (j JoseHeader) ToBase64URL() string {
@@ -157,32 +163,9 @@ func (j JoseHeader) ToBase64URL() string {
 }
 
 func (j JoseHeader) Algorithm() string {
-	return j["alg"].(string)
+	return j.Parameter("alg").(string)
 }
 
 func (j JoseHeader) Parameter(key string) interface{} {
 	return j[key]
-}
-
-func ParseJWT(jwt string) (JWT, error) {
-	if jwt == "" {
-		return JWT{}, fmt.Errorf("empty JWT")
-	}
-	parts := strings.Split(jwt, ".")
-	if len(parts) < 2 {
-		return JWT{}, fmt.Errorf("invalid JWT")
-	}
-	header, err := base64.URLEncoding.DecodeString(parts[0])
-	if err != nil {
-		return JWT{}, err
-	}
-	var h JoseHeader
-	if err := json.Unmarshal(header, &h); err != nil {
-		return JWT{}, err
-	}
-	return JWT{
-		header:  h,
-		payload: JWTClaimsSet{},
-		raw:     jwt,
-	}, nil
 }
