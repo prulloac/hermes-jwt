@@ -25,11 +25,23 @@ func (j JWT) Sign(key interface{}) ([]byte, error) {
 	}
 }
 
-func (j JWT) Verify(key interface{}) error {
-	if !j.IsJWS() {
-		return fmt.Errorf("JWT is not a JWS")
+func (j *JWT) Verify(key interface{}) error {
+	parts := strings.Split(j.compact, ".")
+	if len(parts) != 3 && j.IsJWS() {
+		j.state = InvalidJWT
+		return fmt.Errorf("JWT is not a valid JWS")
 	}
-	jwsSigningInput := j.header.ToBase64URL() + "." + j.payload.ToBase64URL()
+	for _, part := range parts {
+		if part == "" {
+			j.state = SignatureInvalid
+			return fmt.Errorf("invalid JWS")
+		}
+		if _, err := base64.RawURLEncoding.DecodeString(part); err != nil {
+			j.state = SignatureInvalid
+			return err
+		}
+	}
+	jwsSigningInput := parts[0] + "." + parts[1]
 	b := false
 	var err error
 	switch j.header.Algorithm() {
@@ -38,9 +50,11 @@ func (j JWT) Verify(key interface{}) error {
 	case cryptography.AlgorithmRS256, cryptography.AlgorithmRS384, cryptography.AlgorithmRS512:
 		b, err = cryptography.RSAVerify(j.Algorithm(), key, jwsSigningInput, j.signature)
 	default:
+		j.state = SignatureInvalid
 		return fmt.Errorf("unsupported algorithm")
 	}
 	if err != nil {
+		j.state = SignatureInvalid
 		return err
 	}
 	if !b {
@@ -86,7 +100,7 @@ func ParseJWS(jwt string) (JWT, error) {
 	return JWT{
 		header:    h,
 		payload:   claims,
-		raw:       jwt,
+		compact:   jwt,
 		state:     SignatureUnverified,
 		signature: signature,
 	}, nil

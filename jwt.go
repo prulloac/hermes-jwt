@@ -37,13 +37,14 @@ const (
 	EncryptionVerified
 	EncryptionInvalid
 	EncryptionUnverified
+	InvalidJWT
 )
 
 type JWT struct {
 	header    JoseHeader
 	payload   JWTClaimsSet
 	signature []byte
-	raw       string
+	compact   string
 	state     JWTState
 }
 

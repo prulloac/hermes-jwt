@@ -61,6 +61,6 @@ func TestVerifySignature(t *testing.T) {
 		signature: []byte("signature"),
 	}
 	err = j.Verify([]byte("key"))
-	assert.NoError(t, err)
-	assert.Equal(t, SignatureInvalid, j.state)
+	assert.Error(t, err)
+	assert.Equal(t, InvalidJWT, j.state)
 }
