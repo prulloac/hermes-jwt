@@ -3,26 +3,8 @@
 {
 	"name": "Hermes Go",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "mcr.microsoft.com/devcontainers/go:1-1-bookworm",
+	"image": "ghcr.io/prulloac/go-ubuntu-devcontainer:latest",
 	"features": {
-		"ghcr.io/devcontainers/features/common-utils:2": {
-			"installZsh": true,
-			"configureZshAsDefaultShell": true,
-			"installOhMyZsh": true,
-			"installOhMyZshConfig": true,
-			"upgradePackages": true,
-			"username": "automatic",
-			"userUid": "automatic",
-			"userGid": "automatic"
-		},
-		"ghcr.io/devcontainers/features/git:1": {
-			"ppa": true,
-			"version": "latest"
-		},
-		"ghcr.io/devcontainers/features/github-cli:1": {
-			"installDirectlyFromGitHubRelease": true,
-			"version": "latest"
-		},
 		"ghcr.io/devcontainers/features/docker-in-docker:2": {
 			"moby": false,
 		}
